@@ -1,114 +1,16 @@
 <!doctype html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#020617">
-<title>Eclipse 12·08·2026</title>
-<style>
-:root{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color-scheme:dark}body{margin:0;background:radial-gradient(circle at top,#1f2937,#020617 65%);color:#f8fafc}.wrap{max-width:980px;margin:auto;padding:18px}.hero,.card{background:#0f172a;border:1px solid #334155;border-radius:22px;padding:20px;margin-bottom:16px}.hero{box-shadow:0 20px 50px #0006}h1{font-size:clamp(2rem,7vw,4.2rem);margin:.2rem 0}.muted{color:#94a3b8}.count{font-size:clamp(2.5rem,10vw,6rem);font-variant-numeric:tabular-nums;font-weight:900;letter-spacing:-.04em}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}.big{font-size:1.6rem;font-weight:800}.controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px}button,input{font:inherit}button{cursor:pointer;border:0;border-radius:14px;padding:13px 16px;font-weight:800;touch-action:manipulation}.primary{background:#f8fafc;color:#020617}.secondary{background:#1e293b;color:#f8fafc}.on{background:#16a34a;color:white}.location-row{display:flex;gap:8px;flex-wrap:wrap}.location-row input{flex:1;min-width:190px;padding:13px;border-radius:12px;border:1px solid #475569;background:#020617;color:white}.status{margin-top:10px;padding:11px;border-radius:10px;background:#172033;line-height:1.4}.ok{border:1px solid #16a34a}.bad{border:1px solid #dc2626}.sunbox{height:220px;position:relative;overflow:hidden;border-radius:20px;background:linear-gradient(#0b1020,#141a2c);margin-top:18px}.sun,.moon{width:120px;height:120px;border-radius:50%;position:absolute;top:50px}.sun{background:#ffd54a;left:50%;transform:translateX(-50%);box-shadow:0 0 60px #ffd54a99}.moon{background:#05070b;left:calc(50% - 120px);transition:left .5s}.timeline{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}.phase{padding:10px;border-radius:12px;background:#172033;text-align:center}.safety{border-left:4px solid #f8fafc}a{color:#cbd5e1}@media(max-width:600px){.timeline{grid-template-columns:1fr 1fr}.wrap{padding:12px}}
-</style>
-</head>
-<body>
-<div class="wrap">
-<section class="hero">
-<div class="muted">Eclipse total de Sol · 12 agosto 2026</div>
-<h1>Guía visual del eclipse</h1>
-<p id="location">Palencia capital · hora CEST</p>
-<div class="count" id="countdown">--:--:--</div>
-<div id="nextLabel" class="muted">Calculando…</div>
-<div class="controls">
-<button id="voiceBtn" class="primary" type="button">Activar avisos de voz</button>
-<button id="testVoiceBtn" class="secondary" type="button">Probar sonido y voz</button>
-<button id="testModeBtn" class="secondary" type="button">Modo test 60 s</button>
-<button id="realModeBtn" class="secondary" type="button">Modo eclipse</button>
-</div>
-<div id="voiceStatus" class="status">Avisos de voz desactivados.</div>
-<div class="sunbox"><div class="sun"></div><div class="moon" id="moon"></div></div>
-</section>
-<section class="card"><h2>¿Desde dónde vas a verlo?</h2><div class="location-row"><input id="town" placeholder="Escribe un municipio" value="Palencia"><button id="townBtn" class="primary" type="button">Buscar municipio</button><button id="gpsBtn" class="secondary" type="button">Usar mi ubicación</button></div><div id="locStatus" class="status">Palencia está cargada. El resto de municipios se incorporará con datos verificados.</div></section>
-<section class="grid"><div class="card"><div class="muted">Hora local</div><div class="big" id="clock">--:--:--</div></div><div class="card"><div class="muted">Fase actual</div><div class="big" id="phaseNow">Antes del eclipse</div></div><div class="card"><div class="muted">Totalidad</div><div class="big" id="totality">1 min 42 s</div></div><div class="card"><div class="muted">Datos</div><div class="big">IGN / OAN</div></div></section>
-<section class="card"><h2>Hitos · Palencia</h2><div class="timeline" id="timeline"></div></section>
-<section class="card safety"><h2>Seguridad ocular</h2><p>No mires directamente al Sol durante las fases parciales. Usa protección certificada ISO 12312-2. Solo durante la totalidad completa puede retirarse la protección y debe volver a colocarse antes de C3.</p><p class="muted">Para los avisos de voz, mantén esta página abierta y el iPhone desbloqueado. En iOS la reproducción por voz necesita iniciarse desde una pulsación del usuario.</p></section>
-</div>
-<script>
-'use strict';
-let voiceEnabled=false;
-const real={C1:new Date('2026-08-12T19:33:56+02:00'),C2:new Date('2026-08-12T20:29:10+02:00'),MAX:new Date('2026-08-12T20:30:01+02:00'),C3:new Date('2026-08-12T20:30:52+02:00'),C4:new Date('2026-08-12T21:22:36+02:00')};
-let events={...real};
-const names={C1:'inicio parcial',C2:'inicio de la totalidad',MAX:'máximo',C3:'fin de la totalidad',C4:'fin del eclipse'};
-const fired=new Set();
-const $=id=>document.getElementById(id);
-
-function setVoiceStatus(text,type=''){
- const el=$('voiceStatus'); el.textContent=text; el.className='status'+(type?' '+type:'');
-}
-function getSpanishVoice(){
- const voices=window.speechSynthesis?window.speechSynthesis.getVoices():[];
- return voices.find(v=>v.lang&&v.lang.toLowerCase().startsWith('es-es'))||voices.find(v=>v.lang&&v.lang.toLowerCase().startsWith('es'))||null;
-}
-function speakNow(text){
- if(!('speechSynthesis' in window)||!('SpeechSynthesisUtterance' in window)){
-   setVoiceStatus('Este navegador no ofrece síntesis de voz. Abre la web directamente en Safari.', 'bad');
-   return false;
- }
- try{
-   const synth=window.speechSynthesis;
-   synth.cancel();
-   const u=new SpeechSynthesisUtterance(text);
-   u.lang='es-ES'; u.rate=0.95; u.volume=1;
-   const v=getSpanishVoice(); if(v)u.voice=v;
-   u.onstart=()=>setVoiceStatus('✓ Voz funcionando. Avisos activados.', 'ok');
-   u.onend=()=>setVoiceStatus('✓ Avisos de voz activados y comprobados.', 'ok');
-   u.onerror=e=>setVoiceStatus('No se pudo reproducir la voz ('+(e.error||'error de iOS')+'). Abre esta página en Safari y comprueba que el volumen multimedia no esté a cero.', 'bad');
-   synth.resume();
-   synth.speak(u);
-   return true;
- }catch(e){
-   setVoiceStatus('Error al iniciar la voz: '+e.message, 'bad');
-   return false;
- }
-}
-async function beep(){
- try{
-  const AC=window.AudioContext||window.webkitAudioContext;
-  if(!AC)return false;
-  const c=new AC(); await c.resume();
-  const o=c.createOscillator(),g=c.createGain();
-  o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.value=.12;o.start();o.stop(c.currentTime+.16);
-  setTimeout(()=>c.close(),400);return true;
- }catch(e){return false}
-}
-function activateVoice(){
- voiceEnabled=true;
- $('voiceBtn').textContent='✓ Avisos de voz activados'; $('voiceBtn').className='on';
- setVoiceStatus('Activando voz…');
- speakNow('Avisos de voz activados correctamente.');
-}
-function testVoice(){
- voiceEnabled=true;
- $('voiceBtn').textContent='✓ Avisos de voz activados'; $('voiceBtn').className='on';
- setVoiceStatus('Probando sonido y voz…');
- beep();
- speakNow('Prueba correcta. Los avisos de voz están preparados para el eclipse.');
-}
-function scheduledSpeak(text){if(voiceEnabled)speakNow(text)}
-function testMode(){const b=Date.now()+5000;events={C1:new Date(b),C2:new Date(b+15000),MAX:new Date(b+25000),C3:new Date(b+35000),C4:new Date(b+50000)};$('totality').textContent='20 s · modo test';fired.clear();scheduledSpeak('Modo test iniciado.')}
-function setReal(){events={...real};$('totality').textContent='1 min 42 s';fired.clear();scheduledSpeak('Modo eclipse activado.')}
-function chooseTown(){const q=$('town').value.trim();if(!q)return;const n=q.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'');if(n==='palencia'){setReal();$('location').textContent='Palencia capital · hora CEST';$('locStatus').textContent='Palencia cargada.'}else{$('locStatus').textContent='Todavía no cargo horarios de '+q+' sin verificarlos. Se incorporarán con datos oficiales.'}}
-function useGPS(){if(!navigator.geolocation){$('locStatus').textContent='Este navegador no ofrece geolocalización.';return}$('locStatus').textContent='Solicitando ubicación…';navigator.geolocation.getCurrentPosition(p=>{$('locStatus').textContent=`GPS obtenido: ${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}. Aún no sustituyo los horarios hasta conectar las coordenadas con efemérides verificadas.`},()=>{$('locStatus').textContent='No se pudo obtener la ubicación. Revisa el permiso de localización de Safari.'})}
-function fmt(d){return d.toLocaleTimeString('es-ES',{hour12:false})}
-function renderTimeline(){const el=$('timeline');el.innerHTML='';for(const k of Object.keys(events)){const d=events[k],x=document.createElement('div');x.className='phase';x.innerHTML=`<strong>${k}</strong><br>${d?fmt(d):'—'}`;el.appendChild(x)}}
-function update(){const now=new Date();$('clock').textContent=fmt(now);const ordered=Object.entries(events).filter(x=>x[1]).sort((a,b)=>a[1]-b[1]);const next=ordered.find(([k,d])=>d>now);let phase='Antes del eclipse';const[c1,c2,mx,c3,c4]=['C1','C2','MAX','C3','C4'].map(k=>events[k]);if(c1&&now>=c1)phase='Parcial';if(c2&&c3&&now>=c2&&now<c3)phase='TOTALIDAD';if(c3&&now>=c3)phase='Parcial final';if(c4&&now>=c4)phase='Eclipse finalizado';$('phaseNow').textContent=phase;if(c1&&c4){const p=Math.max(0,Math.min(1,(now-c1)/(c4-c1)));$('moon').style.left=`calc(50% - ${120-240*p}px)`}if(next){const s=Math.max(0,Math.floor((next[1]-now)/1000)),hh=String(Math.floor(s/3600)).padStart(2,'0'),mm=String(Math.floor((s%3600)/60)).padStart(2,'0'),ss=String(s%60).padStart(2,'0');$('countdown').textContent=`${hh}:${mm}:${ss}`;$('nextLabel').textContent=`Hasta ${names[next[0]]} · ${fmt(next[1])}`;for(const w of[300,60,30,10])if(s===w&&!fired.has(next[0]+w)){fired.add(next[0]+w);const txt=w===300?'cinco minutos':w===60?'un minuto':w+' segundos';scheduledSpeak(`Quedan ${txt} para ${names[next[0]]}.`)}if(next[0]==='C3'&&s===30&&!fired.has('gafas')){fired.add('gafas');scheduledSpeak('Atención. Quedan treinta segundos para el final de la totalidad. Prepárate para volver a ponerte las gafas de eclipse.')}}else{$('countdown').textContent='--:--:--';$('nextLabel').textContent='Eclipse finalizado'}renderTimeline()}
-
-$('voiceBtn').addEventListener('click',activateVoice);
-$('testVoiceBtn').addEventListener('click',testVoice);
-$('testModeBtn').addEventListener('click',testMode);
-$('realModeBtn').addEventListener('click',setReal);
-$('townBtn').addEventListener('click',chooseTown);
-$('gpsBtn').addEventListener('click',useGPS);
-if('speechSynthesis' in window){window.speechSynthesis.getVoices();window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices()}
-setInterval(update,250);update();
-</script>
-</body>
-</html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#020617"><title>Eclipse 12·08·2026</title><style>
+:root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#1e293b,#020617 68%);color:#f8fafc}.wrap{max-width:980px;margin:auto;padding:14px}.hero,.card{background:#0f172a;border:1px solid #334155;border-radius:22px;padding:20px;margin-bottom:14px}.hero{box-shadow:0 20px 50px #0006}h1{font-size:clamp(2rem,7vw,4.1rem);margin:.25rem 0}h2{margin-top:0}.muted{color:#94a3b8}.count{font-size:clamp(2.7rem,11vw,6rem);font-variant-numeric:tabular-nums;font-weight:900;letter-spacing:-.04em;margin-top:8px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px}.big{font-size:1.55rem;font-weight:800}.controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}button{font:inherit;cursor:pointer;border:0;border-radius:14px;padding:13px 16px;font-weight:850;touch-action:manipulation}.primary{background:#f8fafc;color:#020617}.secondary{background:#1e293b;color:#f8fafc}.on{background:#166534;color:#fff}.status{margin-top:12px;padding:12px;border-radius:12px;background:#172033;line-height:1.45}.ok{border:1px solid #22c55e}.warn{border:1px solid #eab308}.testBanner{display:none;margin:0 0 14px;padding:14px;border-radius:14px;background:#7c2d12;color:white;font-weight:900;text-align:center;letter-spacing:.04em}.testBanner.show{display:block}.eventAlert{display:none;margin-top:16px;padding:16px;border:2px solid #f8fafc;border-radius:16px;background:#020617;text-align:center;font-size:clamp(1.25rem,4vw,2rem);font-weight:900}.eventAlert.show{display:block}.sunbox{height:220px;position:relative;overflow:hidden;border-radius:20px;background:linear-gradient(#0b1020,#141a2c);margin-top:18px}.sun,.moon{width:120px;height:120px;border-radius:50%;position:absolute;top:50px}.sun{background:#ffd54a;left:50%;transform:translateX(-50%);box-shadow:0 0 60px #ffd54a99}.moon{background:#05070b;left:calc(50% - 120px);transition:left .35s}.timeline{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}.phase{padding:10px;border-radius:12px;background:#172033;text-align:center}.phase.active{outline:2px solid #fff;background:#1e293b}.safety{border-left:4px solid #f8fafc}.small{font-size:.93rem}.version{font-size:.8rem;color:#64748b;text-align:center;margin-top:14px}@media(max-width:600px){.timeline{grid-template-columns:1fr 1fr}.wrap{padding:10px}.hero,.card{padding:16px}}
+</style></head><body><div class="wrap"><div id="testBanner" class="testBanner">MODO PRUEBA · SIMULACIÓN DE 60 SEGUNDOS</div><section class="hero"><div class="muted">Eclipse total de Sol · 12 agosto 2026</div><h1>Guía visual del eclipse</h1><p>Palencia capital · hora CEST</p><div class="count" id="countdown">--:--:--</div><div id="nextLabel" class="muted">Calculando…</div><div id="eventAlert" class="eventAlert"></div><div class="controls"><button id="audioBtn" class="primary" type="button">Activar y probar sonido</button><button id="testModeBtn" class="secondary" type="button">Iniciar prueba 60 s</button><button id="realModeBtn" class="secondary" type="button">Volver al eclipse real</button></div><div id="audioStatus" class="status">Sonido sin activar. Pulsa «Activar y probar sonido».</div><div class="sunbox"><div class="sun"></div><div class="moon" id="moon"></div></div></section><section class="grid"><div class="card"><div class="muted">Hora local</div><div class="big" id="clock">--:--:--</div></div><div class="card"><div class="muted">Fase actual</div><div class="big" id="phaseNow">Antes del eclipse</div></div><div class="card"><div class="muted">Totalidad</div><div class="big" id="totality">1 min 42 s</div></div><div class="card"><div class="muted">Modo</div><div class="big" id="modeLabel">Eclipse real</div></div></section><section class="card"><h2>Hitos</h2><div class="timeline" id="timeline"></div></section><section class="card safety"><h2>Seguridad ocular</h2><p>No mires directamente al Sol durante las fases parciales. Usa protección certificada ISO 12312-2. Solo durante la totalidad completa puede retirarse la protección y debe volver a colocarse antes de C3.</p><p class="muted small">Mantén Safari abierto y el iPhone desbloqueado. Esta versión prioriza avisos sonoros y visuales fiables; la voz sintetizada queda desactivada porque no ha resultado estable en iOS.</p></section><div class="version">Versión 3 · prueba funcional de 60 segundos</div></div><script>
+'use strict';const $=id=>document.getElementById(id);const real={C1:new Date('2026-08-12T19:33:56+02:00'),C2:new Date('2026-08-12T20:29:10+02:00'),MAX:new Date('2026-08-12T20:30:01+02:00'),C3:new Date('2026-08-12T20:30:52+02:00'),C4:new Date('2026-08-12T21:22:36+02:00')};const names={C1:'inicio parcial',C2:'inicio de la totalidad',MAX:'máximo',C3:'fin de la totalidad',C4:'fin del eclipse'};let events={...real},mode='real',audioReady=false,testStartedAt=null,audioCtx=null;const fired=new Set();
+function setStatus(t,k=''){const e=$('audioStatus');e.textContent=t;e.className='status'+(k?' '+k:'')}
+async function tone(freq=880,dur=.18,count=1){try{const AC=window.AudioContext||window.webkitAudioContext;if(!AC)throw new Error('AudioContext no disponible');if(!audioCtx)audioCtx=new AC();await audioCtx.resume();for(let i=0;i<count;i++){const o=audioCtx.createOscillator(),g=audioCtx.createGain(),st=audioCtx.currentTime+i*(dur+.08);o.connect(g);g.connect(audioCtx.destination);o.frequency.value=freq;g.gain.setValueAtTime(.0001,st);g.gain.exponentialRampToValueAtTime(.22,st+.02);g.gain.exponentialRampToValueAtTime(.0001,st+dur);o.start(st);o.stop(st+dur+.02)}return true}catch(e){setStatus('El iPhone ha bloqueado el sonido. Abre esta página directamente en Safari y vuelve a pulsar el botón.','warn');return false}}
+async function activateAudio(){const ok=await tone(880,.18,2);if(ok){audioReady=true;$('audioBtn').textContent='✓ Sonido activado';$('audioBtn').className='on';setStatus('✓ Sonido activado. Ya puedes iniciar la prueba de 60 segundos.','ok')}}
+function buildTestEvents(){const b=Date.now();return{C1:new Date(b+5000),C2:new Date(b+20000),MAX:new Date(b+30000),C3:new Date(b+40000),C4:new Date(b+55000)}}
+async function startTest(){mode='test';testStartedAt=Date.now();events=buildTestEvents();fired.clear();$('testBanner').classList.add('show');$('testBanner').textContent='MODO PRUEBA · SIMULACIÓN DE 60 SEGUNDOS';$('modeLabel').textContent='PRUEBA 60 s';$('totality').textContent='20 s · simulación';flash('Prueba iniciada: recorreremos C1, C2, máximo, C3 y C4.');if(audioReady)tone(660,.14,2);else setStatus('La simulación funciona, pero el sonido no está activado. Pulsa «Activar y probar sonido».','warn')}
+function setReal(){mode='real';events={...real};fired.clear();$('testBanner').classList.remove('show');$('modeLabel').textContent='Eclipse real';$('totality').textContent='1 min 42 s';$('eventAlert').className='eventAlert';$('eventAlert').textContent=''}
+function flash(t){const e=$('eventAlert');e.textContent=t;e.className='eventAlert show'}function fireOnce(id,text,freq,count=1){if(fired.has(id))return;fired.add(id);flash(text);if(audioReady)tone(freq,.17,count)}function fmt(d){return d.toLocaleTimeString('es-ES',{hour12:false})}
+function renderTimeline(){const now=new Date(),el=$('timeline');el.innerHTML='';for(const k of['C1','C2','MAX','C3','C4']){const d=events[k],x=document.createElement('div');x.className='phase'+(d&&now>=d?' active':'');x.innerHTML=`<strong>${k}</strong><br>${d?fmt(d):'—'}`;el.appendChild(x)}}
+function update(){const now=new Date();$('clock').textContent=fmt(now);const{C1:c1,C2:c2,MAX:mx,C3:c3,C4:c4}=events;let phase='Antes del eclipse';if(c1&&now>=c1)phase='Parcial';if(c2&&now>=c2&&now<c3)phase='TOTALIDAD';if(c3&&now>=c3)phase='Parcial final';if(c4&&now>=c4)phase='Eclipse finalizado';$('phaseNow').textContent=phase;if(c1&&c4){const p=Math.max(0,Math.min(1,(now-c1)/(c4-c1)));$('moon').style.left=`calc(50% - ${120-240*p}px)`}const ordered=Object.entries(events).sort((a,b)=>a[1]-b[1]),next=ordered.find(([,d])=>d>now);if(next){const s=Math.max(0,Math.ceil((next[1]-now)/1000)),hh=String(Math.floor(s/3600)).padStart(2,'0'),mm=String(Math.floor((s%3600)/60)).padStart(2,'0'),ss=String(s%60).padStart(2,'0');$('countdown').textContent=`${hh}:${mm}:${ss}`;$('nextLabel').textContent=`Hasta ${names[next[0]]} · ${fmt(next[1])}`}else{$('countdown').textContent='00:00:00';$('nextLabel').textContent='Eclipse finalizado'}if(mode==='test'){const e=(Date.now()-testStartedAt)/1000;if(e>=5)fireOnce('c1','C1 · Comienza la fase parcial',520,1);if(e>=10)fireOnce('10c2','Quedan 10 segundos para la TOTALIDAD',700,2);if(e>=20)fireOnce('c2','C2 · COMIENZA LA TOTALIDAD',980,3);if(e>=30)fireOnce('max','MÁXIMO DEL ECLIPSE',820,2);if(e>=30.2)fireOnce('10c3','Quedan 10 segundos para el final de la totalidad',620,2);if(e>=40)fireOnce('c3','C3 · FIN DE LA TOTALIDAD · PONTE LAS GAFAS',420,4);if(e>=55)fireOnce('c4','C4 · Fin de la simulación',520,2);if(e>=60&&!fired.has('done')){fired.add('done');$('testBanner').textContent='PRUEBA COMPLETADA';flash('Prueba completada. Has debido ver todos los cambios de fase y oír los avisos sonoros.')}}renderTimeline()}
+$('audioBtn').addEventListener('click',activateAudio);$('testModeBtn').addEventListener('click',startTest);$('realModeBtn').addEventListener('click',setReal);setInterval(update,200);update();
+</script></body></html>
