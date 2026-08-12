@@ -1,0 +1,58 @@
+name: Generar narraciones del eclipse
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/generate-audio.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generar-audio:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar sintetizador y conversor
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y espeak ffmpeg
+
+      - name: Generar narraciones MP3
+        run: |
+          mkdir -p audio
+          gen() {
+            file="$1"
+            text="$2"
+            espeak -v es -s 150 -w "/tmp/${file}.wav" "$text"
+            ffmpeg -y -loglevel error -i "/tmp/${file}.wav" -ar 22050 -ac 1 -b:a 32k "audio/${file}.mp3"
+          }
+          gen activar "Avisos de voz activados. La guía anunciará cada fase del eclipse."
+          gen c1_real "Comienza la fase parcial del eclipse. Mantén puestas las gafas de protección. La fase parcial durará aproximadamente cincuenta y cinco minutos y catorce segundos hasta el comienzo de la totalidad."
+          gen c2_real "Comienza la totalidad. Puedes retirar las gafas únicamente durante la totalidad. La duración prevista es de un minuto y cuarenta y dos segundos."
+          gen max_real "Máximo del eclipse. Estás en el momento central de la totalidad."
+          gen c3_30_real "Quedan treinta segundos para que termine la totalidad. Prepárate para volver a ponerte las gafas."
+          gen c3_real "Finaliza la totalidad. Ponte las gafas de eclipse ahora. Comienza la fase parcial final, que durará aproximadamente cincuenta y un minutos y cuarenta y cuatro segundos."
+          gen c4_real "Finaliza el eclipse."
+          gen test_start "Comienza la simulación de prueba de sesenta segundos."
+          gen c1_test "Comienza la fase parcial de prueba. Durará quince segundos hasta la totalidad."
+          gen c2_test "Comienza la totalidad de prueba. En esta simulación durará veinte segundos."
+          gen max_test "Máximo del eclipse de prueba. Quedan diez segundos para el final de la totalidad."
+          gen c3_test "Finaliza la totalidad de prueba. Ponte las gafas ahora. Comienza la fase parcial final, que durará quince segundos."
+          gen c4_test "Finaliza el eclipse de prueba. Simulación completada."
+
+      - name: Guardar narraciones en el repositorio
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add audio/*.mp3
+          if git diff --cached --quiet; then
+            echo "No hay cambios de audio"
+          else
+            git commit -m "Añadir narraciones pregrabadas del eclipse"
+            git push
+          fi
